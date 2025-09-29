@@ -1,0 +1,35 @@
+{
+    "family": "api-gateway-task",
+    "containerDefinitions": [
+        {
+            "cpu": 0,
+            "environment": [                
+                {
+                    "name": "MATCH_SERVICE_URL",
+                    "value": "http://<DNS-del-LB>/user"
+                }],
+            "essential": true,
+            "image": "XXXXXXXXXXXXX.dkr.ecr.us-east-2.amazonaws.com/cloud/apigateway:latest",
+            "mountPoints": [],
+            "name": "api-gateway-container",
+            "portMappings": [
+                {
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "systemControls": [],
+            "volumesFrom": []
+        }
+    ],
+    "executionRoleArn": "arn:aws:iam::XXXXXXXXXX:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024"
+}

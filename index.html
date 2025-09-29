@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MVP Matchmaking - Front</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f9;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      background: #2d6cdf;
+      color: white;
+      font-size: 1.8rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    h3 {
+      margin-top: 0;
+      color: #2d6cdf;
+      font-size: 1.2rem;
+    }
+
+    div {
+      background: white;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 600px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    label {
+      display: block;
+      margin: 10px 0;
+      font-weight: 500;
+    }
+
+    input, select, textarea {
+      margin-top: 5px;
+      padding: 8px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      height: 140px;
+      resize: none;
+      background: #f9fafc;
+    }
+
+    button {
+      display: inline-block;
+      margin: 10px 5px 10px 0;
+      padding: 10px 18px;
+      background: #2d6cdf;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #1d4fbf;
+    }
+
+    pre {
+      background: #f9fafc;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.9rem;
+      overflow-x: auto;
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: #e0e0e0;
+      margin: 30px auto;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+  <h1>MVP: Front (Form + SSE)</h1>
+
+  <div>
+    <h3>Solicitar partida</h3>
+    <label>Token: <input id="token" value="valid-token"></label>
+    <label>ID Usuario: <input id="idUser" value="1313"></label>
+    <label>Tipo de cola:
+      <select id="queueType">
+        <option value="1">Casual</option>
+        <option value="2">Ranked</option>
+        <option value="3">Alternative</option>
+      </select>
+    </label>
+    <button id="reqBtn">Solicitar partida (POST /match)</button>
+    <p><strong>Respuesta API:</strong></p>
+    <pre id="apiResp"></pre>
+  </div>
+
+  <hr/>
+
+  <div>
+    <h3>Listener (SSE)</h3>
+    <label>Usar mismo token e id: <input id="useSame" type="checkbox" checked></label>
+    <button id="openSse">Abrir SSE</button>
+    <button id="closeSse">Cerrar SSE</button>
+    <p><strong>Notificaciones recibidas:</strong></p>
+    <textarea id="notifs" readonly></textarea>
+  </div>
+
+  <script>
+    const apiBase = 'http://XXXXXXXXXXXXXXX-.us-east-2.elb.amazonaws.com'; // TOCA CAMBIARLA
+    const tokenEl = document.getElementById('token');
+    const idUserEl = document.getElementById('idUser');
+    const queueTypeEl = document.getElementById('queueType');
+    const apiResp = document.getElementById('apiResp');
+    const notifs = document.getElementById('notifs');
+
+    let evtSource = null;
+
+    document.getElementById('reqBtn').addEventListener('click', async () => {
+      const payload = {
+        token: tokenEl.value,
+        idUser: parseInt(idUserEl.value),
+        queueType: parseInt(queueTypeEl.value)
+      };
+      try {
+        const res = await fetch(apiBase + '/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const txt = await res.text();
+        apiResp.textContent = `HTTP ${res.status}\n${txt}`;
+      } catch (err) {
+        apiResp.textContent = `No se pudo contactar el API en ${apiBase}/match\nError simulado: ${err}`;
+      }
+    });
+
+    document.getElementById('openSse').addEventListener('click', () => {
+      if (evtSource) {
+        appendNotif('SSE ya abierto');
+        return;
+      }
+      const token = tokenEl.value;
+      const idUser = idUserEl.value;
+      const url = `${apiBase}/notifications/${encodeURIComponent(idUser)}?token=${encodeURIComponent(token)}`;
+      evtSource = new EventSource(url);
+      evtSource.onmessage = (e) => {
+        appendNotif('message: ' + e.data);
+      };
+      evtSource.onerror = (e) => {
+        appendNotif('SSE error o cerrado: ' + JSON.stringify(e));
+        evtSource.close();
+        evtSource = null;
+      };
+      appendNotif('SSE abierto para user ' + idUser);
+    });
+
+    document.getElementById('closeSse').addEventListener('click', () => {
+      if (evtSource) {
+        evtSource.close();
+        evtSource = null;
+        appendNotif('SSE cerrado por usuario');
+      } else {
+        appendNotif('No había SSE abierto');
+      }
+    });
+
+    function appendNotif(text) {
+      notifs.value = new Date().toISOString() + '  ' + text + '\n' + notifs.value;
+    }
+  </script>
+</body>
+</html>
