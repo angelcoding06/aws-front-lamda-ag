@@ -1,0 +1,45 @@
+Pasos para desplegar API Gateway en AWS con Fargate + ALB + S3
+
+1. Target Group
+   - Crear un Target Group tipo "IP addresses".
+   - Protocolo: HTTP, puerto 8080, protocolo HTTP1.
+   - Asociarlo a la VPC donde está tu servicio ECS.
+   - Asegurarse de que el Security Group permita tráfico entrante en el puerto 80 (para el ALB) y que los tasks permitan tráfico desde el ALB.
+   - Configurar Health Check con path /health.
+
+2. Application Load Balancer (ALB)
+   - Crear un Application Load Balancer:
+     - Internet-facing, IPv4.
+     - Default settings en lo demás.
+   - En Listener y Routing:
+     - Listener en puerto 80 (HTTP).
+     - Routing hacia el Target Group creado en el paso anterior.
+
+3. Cluster y Task Definition
+   - Crear un Cluster en ECS para el API Gateway.
+   - Crear un Task Definition con compatibilidad Fargate.
+   - JSON de la definición incluye:
+     - La imagen subida previamente al ECR.
+     - Variable de entorno MATCH_SERVICE_URL (al inicio puede ir vacía, luego se actualiza con el DNS del LB).
+     - Rol ecsTaskExecutionRole con la policy AmazonECSTaskExecutionRolePolicy.
+   - Crear un Service:
+     - Familia: "api-gateway-task".
+     - Provider: Fargate.
+     - Networking: habilitar Auto-assign public IP.
+     - Seleccionar el contenedor "api-gateway-container".
+     - En Load balancing (optional): habilitar y asociar el ALB creado antes, seleccionando el mismo Target Group.
+
+4. Lambda
+   - Subir el archivo de la función a AWS Lambda.
+   - En Configuration → Environment variables, actualizar BACKEND_URL con el DNS Name del ALB (ejemplo: http://apigatewayLB-xxxx.elb.amazonaws.com).
+
+5. Frontend en S3
+   - Antes de subir index.html, editar la URL de la API para que apunte al DNS del ALB.
+   - Crear un bucket en S3.
+   - Subir el index.html (y cualquier asset).
+   - En Properties, habilitar Static website hosting con index.html como documento inicial.
+
+Notas:
+- El ALB escucha en puerto 80, pero internamente redirige hacia los containers en el puerto 8080.
+- El Health Check (/health) debe estar implementado en el contenedor.
+- Cada vez que se cambien variables de entorno o configuración en la Task Definition, se debe crear una nueva revisión y actualizar el servicio.
